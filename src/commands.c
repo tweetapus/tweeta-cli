@@ -90,8 +90,9 @@ int login_request(Config *cfg, const char *path, const char *json) {
   curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &status);
   if (rc != CURLE_OK) fprintf(stderr, "tweeta: curl: %s\n", curl_easy_strerror(rc));
   if (resp.data) {
-    fputs(resp.data, stdout);
-    if (resp.data[resp.len - 1] != '\n') fputc('\n', stdout);
+    bool formatted = print_json_readable(resp.data);
+    if (!formatted) fputs(resp.data, stdout);
+    if (!formatted && resp.data[resp.len - 1] != '\n') fputc('\n', stdout);
     if (status >= 200 && status < 300) store_token_from_login(cfg, resp.data);
   }
   curl_slist_free_all(headers);

@@ -48,6 +48,7 @@ char *json_escape(const char *s);
 char *json_object_from_pairs(int argc, char **argv, int start);
 char *json_object_from_options(int argc, char **argv, int start);
 char *query_from_options(CURL *curl, int argc, char **argv, int start);
+bool print_json_readable(const char *body);
 const char *opt_value(int argc, char **argv, const char *name, const char *def);
 
 const char *config_path(void);
