@@ -227,7 +227,7 @@ int http_request(Config *cfg, const char *method, const char *path, const char *
     fprintf(stderr, "tweeta: curl: %s\n", curl_easy_strerror(rc));
     status = 1;
   } else {
-    bool formatted = resp.data && print_json_readable(resp.data);
+    bool formatted = resp.data && print_json_smart(resp.data);
     if (resp.data && !formatted) fputs(resp.data, stdout);
     if (!formatted && (!resp.data || resp.len == 0 || resp.data[resp.len - 1] != '\n')) fputc('\n', stdout);
   }

@@ -67,6 +67,7 @@ char *join_query(CURL *curl, int argc, char **argv, int start) {
   Buffer b = {0};
   for (int i = start; i + 1 < argc; i += 2) {
     if (strncmp(argv[i], "--", 2) != 0) continue;
+    if (strcmp(argv[i], "--all") == 0 || strcmp(argv[i], "--short") == 0) continue;
     char *k = urlenc(curl, argv[i] + 2);
     char *v = urlenc(curl, argv[i + 1]);
     size_t need = b.len + strlen(k) + strlen(v) + 3;
@@ -159,6 +160,7 @@ char *json_object_from_options(int argc, char **argv, int start) {
     const char *key = argv[i] + 2;
     const char *val = NULL;
     if (i + 1 < argc && strncmp(argv[i + 1], "--", 2) != 0) val = argv[++i];
+    if (strcmp(key, "all") == 0 || strcmp(key, "short") == 0) continue;
     if (strcmp(key, "file") == 0) continue;
     char *k = json_escape(key);
     char *v = json_value_auto(val);
@@ -182,6 +184,7 @@ char *query_from_options(CURL *curl, int argc, char **argv, int start) {
     const char *key = argv[i] + 2;
     const char *val = "true";
     if (i + 1 < argc && strncmp(argv[i + 1], "--", 2) != 0) val = argv[++i];
+    if (strcmp(key, "all") == 0 || strcmp(key, "short") == 0) continue;
     if (strcmp(key, "file") == 0) continue;
     char *k = urlenc(curl, key);
     char *v = urlenc(curl, val);

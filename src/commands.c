@@ -45,6 +45,8 @@ int cmd_request(Config *cfg, int argc, char **argv) {
     else if (strcmp(argv[i], "--upload") == 0 && i + 2 < argc) {
       upload_field = argv[++i];
       upload_file = argv[++i];
+    } else if (strcmp(argv[i], "--all") == 0 || strcmp(argv[i], "--short") == 0) {
+      continue;
     } else {
       fprintf(stderr, "unknown request option: %s\n", argv[i]);
       return 2;
@@ -90,7 +92,7 @@ int login_request(Config *cfg, const char *path, const char *json) {
   curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &status);
   if (rc != CURLE_OK) fprintf(stderr, "tweeta: curl: %s\n", curl_easy_strerror(rc));
   if (resp.data) {
-    bool formatted = print_json_readable(resp.data);
+    bool formatted = print_json_smart(resp.data);
     if (!formatted) fputs(resp.data, stdout);
     if (!formatted && resp.data[resp.len - 1] != '\n') fputc('\n', stdout);
     if (status >= 200 && status < 300) store_token_from_login(cfg, resp.data);

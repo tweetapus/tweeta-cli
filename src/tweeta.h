@@ -49,6 +49,9 @@ char *json_object_from_pairs(int argc, char **argv, int start);
 char *json_object_from_options(int argc, char **argv, int start);
 char *query_from_options(CURL *curl, int argc, char **argv, int start);
 bool print_json_readable(const char *body);
+bool print_profile_summary(const char *body);
+bool print_json_smart(const char *body);
+void set_json_output_all(bool all);
 const char *opt_value(int argc, char **argv, const char *name, const char *def);
 
 const char *config_path(void);

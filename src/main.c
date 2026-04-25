@@ -12,6 +12,9 @@ int main(int argc, char **argv) {
     usage();
     return 0;
   }
+  for (int i = 1; i < argc; i++) {
+    if (strcmp(argv[i], "--all") == 0) set_json_output_all(true);
+  }
   int rc = 0;
   if (strcmp(argv[1], "config") == 0) {
     if (argc >= 4 && strcmp(argv[2], "set-base") == 0) snprintf(cfg.base_url, sizeof(cfg.base_url), "%s", argv[3]), save_config(&cfg);
