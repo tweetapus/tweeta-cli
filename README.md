@@ -43,6 +43,9 @@ Examples:
 ./tweeta profile get alice
 ./tweeta profile follow alice
 ./tweeta upload media ./image.png
+./tweeta upload get --id POST_ID > attachment.bin
+./tweeta upload get --id POST_ID --all
+./tweeta upload get --id POST_ID --really-all > first-attachment.bin
 ./tweeta admin users --search alice
 ./tweeta admin user USER_ID
 ./tweeta admin suspend USER_ID --reason spam --action suspend --duration 60

@@ -1,8 +1,10 @@
 #include "tweeta.h"
 
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 
 void usage(void) {
   puts(
@@ -11,6 +13,9 @@ void usage(void) {
       "  tweeta config set-base URL | set-token TOKEN | show\n"
       "  tweeta auth login USER PASS | register USER PASS [--challenge-token TOKEN] | me\n"
       "  tweeta GROUP ACTION [ARGS...] [--field VALUE...] [--file PATH]\n"
+      "  tweeta upload get --id POST_ID > attachment.bin\n"
+      "  tweeta upload get --id POST_ID --all\n"
+      "  tweeta upload get --id POST_ID --really-all > first-attachment.bin\n"
       "  tweeta routes\n"
       "  tweeta request METHOD PATH [--json JSON | --data TEXT | --data-file FILE | --upload FIELD FILE]\n"
       "  tweeta get|post|patch|put|delete PATH [--json JSON]\n"
@@ -177,6 +182,256 @@ int cmd_admin(Config *cfg, int argc, char **argv) {
   curl_easy_cleanup(curl);
   if (r == 2) usage();
   return r;
+}
+
+static char *json_string_after(const char *start, const char *key) {
+  const char *p = strstr(start, key);
+  if (!p) return NULL;
+  p += strlen(key);
+  const char *e = p;
+  Buffer b = {0};
+  b.data = xstrdup("");
+  while (*e) {
+    if (*e == '"' && (e == p || e[-1] != '\\')) break;
+    char ch = *e++;
+    if (ch == '\\' && *e) {
+      ch = *e++;
+      if (ch == 'n') ch = '\n';
+      else if (ch == 'r') ch = '\r';
+      else if (ch == 't') ch = '\t';
+    }
+    b.data = xrealloc(b.data, b.len + 2);
+    b.data[b.len++] = ch;
+    b.data[b.len] = 0;
+  }
+  return b.len ? b.data : (free(b.data), NULL);
+}
+
+static char *attachment_ref_from_post_json(const char *json) {
+  const char *a = strstr(json, "\"attachments\"");
+  if (!a) return NULL;
+  char *refs[1] = {0};
+  int count = 0;
+  /* Reuse the all-attachment parser with a single-slot output. */
+  const char *p = strchr(a, '[');
+  if (!p) return NULL;
+  bool in_string = false, esc = false;
+  int depth = 0;
+  const char *obj_start = NULL;
+  for (; *p; p++) {
+    char ch = *p;
+    if (in_string) {
+      if (esc) esc = false;
+      else if (ch == '\\') esc = true;
+      else if (ch == '"') in_string = false;
+      continue;
+    }
+    if (ch == '"') {
+      in_string = true;
+      continue;
+    }
+    if (ch == '{') {
+      if (depth == 0) obj_start = p;
+      depth++;
+    } else if (ch == '}') {
+      if (depth > 0) depth--;
+      if (depth == 0 && obj_start) {
+        size_t n = (size_t)(p - obj_start + 1);
+        char *obj = malloc(n + 1);
+        if (!obj) die("out of memory");
+        memcpy(obj, obj_start, n);
+        obj[n] = 0;
+        refs[count] = json_string_after(obj, "\"file_url\":\"");
+        if (!refs[count]) refs[count] = json_string_after(obj, "\"url\":\"");
+        if (!refs[count]) refs[count] = json_string_after(obj, "\"file_name\":\"");
+        if (!refs[count]) refs[count] = json_string_after(obj, "\"filename\":\"");
+        free(obj);
+        if (refs[count]) return refs[count];
+        obj_start = NULL;
+      }
+    } else if (ch == ']' && depth == 0) {
+      break;
+    }
+  }
+  return NULL;
+}
+
+static bool looks_like_upload_filename(const char *s) {
+  size_t n = strlen(s);
+  return n > 5 && !strchr(s, '/') && strchr(s, '.');
+}
+
+static bool has_flag(int argc, char **argv, const char *flag) {
+  for (int i = 0; i < argc; i++) {
+    if (strcmp(argv[i], flag) == 0) return true;
+  }
+  return false;
+}
+
+static char *attachment_url_for_ref(const char *ref) {
+  if (strncmp(ref, "http://", 7) == 0 || strncmp(ref, "https://", 8) == 0 || strncmp(ref, "/api/", 5) == 0) {
+    return xstrdup(ref);
+  }
+  if (looks_like_upload_filename(ref)) {
+    size_t n = strlen(ref) + 14;
+    char *path = malloc(n);
+    if (!path) die("out of memory");
+    snprintf(path, n, "/api/uploads/%s", ref);
+    return path;
+  }
+  return xstrdup(ref);
+}
+
+static char *filename_from_ref(const char *ref, int index) {
+  const char *start = strrchr(ref, '/');
+  start = start ? start + 1 : ref;
+  size_t n = strcspn(start, "?#");
+  if (n == 0) {
+    char fallback[64];
+    snprintf(fallback, sizeof(fallback), "attachment-%d.bin", index + 1);
+    return xstrdup(fallback);
+  }
+  char *name = malloc(n + 1);
+  if (!name) die("out of memory");
+  memcpy(name, start, n);
+  name[n] = 0;
+  return name;
+}
+
+static int ensure_download_dir(void) {
+  if (mkdir("/tmp/tweeta-cli", 0700) != 0 && errno != EEXIST) {
+    perror("/tmp/tweeta-cli");
+    return 1;
+  }
+  if (mkdir("/tmp/tweeta-cli/downloads", 0700) != 0 && errno != EEXIST) {
+    perror("/tmp/tweeta-cli/downloads");
+    return 1;
+  }
+  return 0;
+}
+
+static int collect_attachment_refs(const char *json, char ***out_refs) {
+  *out_refs = NULL;
+  const char *a = strstr(json, "\"attachments\"");
+  if (!a) return 0;
+  const char *p = strchr(a, '[');
+  if (!p) return 0;
+
+  char **refs = NULL;
+  int count = 0;
+  bool in_string = false, esc = false;
+  int depth = 0;
+  const char *obj_start = NULL;
+  for (; *p; p++) {
+    char ch = *p;
+    if (in_string) {
+      if (esc) esc = false;
+      else if (ch == '\\') esc = true;
+      else if (ch == '"') in_string = false;
+      continue;
+    }
+    if (ch == '"') {
+      in_string = true;
+      continue;
+    }
+    if (ch == '{') {
+      if (depth == 0) obj_start = p;
+      depth++;
+    } else if (ch == '}') {
+      if (depth > 0) depth--;
+      if (depth == 0 && obj_start) {
+        size_t n = (size_t)(p - obj_start + 1);
+        char *obj = malloc(n + 1);
+        if (!obj) die("out of memory");
+        memcpy(obj, obj_start, n);
+        obj[n] = 0;
+        char *ref = json_string_after(obj, "\"file_url\":\"");
+        if (!ref) ref = json_string_after(obj, "\"url\":\"");
+        if (!ref) ref = json_string_after(obj, "\"file_name\":\"");
+        if (!ref) ref = json_string_after(obj, "\"filename\":\"");
+        free(obj);
+        if (ref) {
+          refs = xrealloc(refs, sizeof(*refs) * (size_t)(count + 1));
+          refs[count++] = ref;
+        }
+        obj_start = NULL;
+      }
+    } else if (ch == ']' && depth == 0) {
+      break;
+    }
+  }
+  *out_refs = refs;
+  return count;
+}
+
+int cmd_upload_get_attachment(Config *cfg, int argc, char **argv) {
+  if (argc < 5 || strcmp(argv[1], "upload") != 0 || strcmp(argv[2], "get") != 0) return 2;
+  const char *post_id = opt_value(argc, argv, "--id", NULL);
+  if (!post_id) return 2;
+
+  char path[1024];
+  snprintf(path, sizeof(path), "/api/tweets/%s", post_id);
+  char *json = NULL;
+  size_t json_len = 0;
+  int rc = http_capture(cfg, "GET", path, &json, &json_len);
+  (void)json_len;
+  if (rc != 0) {
+    if (json) fputs(json, stderr);
+    free(json);
+    return rc;
+  }
+
+  bool all = has_flag(argc, argv, "--all");
+  bool really_all = has_flag(argc, argv, "--really-all");
+  if (really_all) all = true;
+
+  char *ref = NULL;
+  char **refs = NULL;
+  int ref_count = 0;
+  if (all) {
+    ref_count = collect_attachment_refs(json, &refs);
+  } else {
+    ref = attachment_ref_from_post_json(json);
+  }
+  free(json);
+
+  if (all) {
+    if (ref_count <= 0) {
+      fprintf(stderr, "tweeta: post has no attachment URLs or filenames\n");
+      return 1;
+    }
+    if (ensure_download_dir() != 0) {
+      for (int i = 0; i < ref_count; i++) free(refs[i]);
+      free(refs);
+      return 1;
+    }
+    int final_rc = 0;
+    for (int i = 0; i < ref_count; i++) {
+      char *url = attachment_url_for_ref(refs[i]);
+      char *file = filename_from_ref(refs[i], i);
+      char out_path[1024];
+      snprintf(out_path, sizeof(out_path), "/tmp/tweeta-cli/downloads/%s", file);
+      int dl = http_download_file(cfg, "GET", url, out_path, really_all && i == 0);
+      if (dl == 0) fprintf(stderr, "%s\n", out_path);
+      else final_rc = dl;
+      free(url);
+      free(file);
+      free(refs[i]);
+    }
+    free(refs);
+    return final_rc;
+  }
+
+  if (!ref) {
+    fprintf(stderr, "tweeta: post has no attachment URL or filename\n");
+    return 1;
+  }
+
+  char *url = attachment_url_for_ref(ref);
+  int out_rc = http_stream(cfg, "GET", url);
+  free(url);
+  free(ref);
+  return out_rc;
 }
 
 void endpoints(void) {

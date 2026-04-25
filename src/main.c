@@ -19,6 +19,9 @@ int main(int argc, char **argv) {
     else if (argc >= 3 && strcmp(argv[2], "show") == 0) printf("base_url=%s\ntoken=%s\nconfig=%s\n", cfg.base_url, cfg.token[0] ? "(set)" : "", config_path());
     else usage(), rc = 2;
   } else {
+    int upload_attachment = cmd_upload_get_attachment(&cfg, argc, argv);
+    if (upload_attachment != 2) rc = upload_attachment;
+    else {
     int named = cmd_named_route(&cfg, argc, argv);
     if (named != 2) rc = named;
     else if (strcmp(argv[1], "request") == 0) rc = cmd_request(&cfg, argc - 1, argv + 1);
@@ -66,6 +69,7 @@ int main(int argc, char **argv) {
   } else if (strcmp(argv[1], "admin") == 0) rc = cmd_admin(&cfg, argc - 1, argv + 1);
   else if (strcmp(argv[1], "endpoints") == 0) endpoints();
   else usage(), rc = 2;
+    }
   }
   curl_global_cleanup();
   return rc;

@@ -236,3 +236,107 @@ int http_request(Config *cfg, const char *method, const char *path, const char *
   free(resp.data);
   return status >= 200 && status < 300 ? 0 : (int)(status ? status : 1);
 }
+
+int http_capture(Config *cfg, const char *method, const char *path, char **out, size_t *out_len) {
+  CURL *curl = curl_easy_init();
+  if (!curl) die("curl init failed");
+  Buffer resp = {0};
+  char url[4096];
+  if (strncmp(path, "http://", 7) == 0 || strncmp(path, "https://", 8) == 0) {
+    snprintf(url, sizeof(url), "%s", path);
+  } else {
+    snprintf(url, sizeof(url), "%s%s%s", cfg->base_url, path[0] == '/' ? "" : "/", path);
+  }
+  const char *api_path = strstr(url, "/api/");
+  if (!api_path) api_path = path;
+  struct curl_slist *headers = build_headers(cfg, method, api_path, NULL);
+  curl_easy_setopt(curl, CURLOPT_URL, url);
+  curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+  curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_cb);
+  curl_easy_setopt(curl, CURLOPT_WRITEDATA, &resp);
+  curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
+  curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, method);
+  curl_easy_setopt(curl, CURLOPT_TIMEOUT, 120L);
+  CURLcode rc = curl_easy_perform(curl);
+  long status = 0;
+  curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &status);
+  curl_slist_free_all(headers);
+  curl_easy_cleanup(curl);
+  if (rc != CURLE_OK) {
+    fprintf(stderr, "tweeta: curl: %s\n", curl_easy_strerror(rc));
+    free(resp.data);
+    return 1;
+  }
+  *out = resp.data ? resp.data : xstrdup("");
+  *out_len = resp.len;
+  return status >= 200 && status < 300 ? 0 : (int)(status ? status : 1);
+}
+
+static size_t stdout_cb(char *ptr, size_t size, size_t nmemb, void *userdata) {
+  (void)userdata;
+  return fwrite(ptr, size, nmemb, stdout) * size;
+}
+
+int http_stream(Config *cfg, const char *method, const char *path) {
+  CURL *curl = curl_easy_init();
+  if (!curl) die("curl init failed");
+  char url[4096];
+  if (strncmp(path, "http://", 7) == 0 || strncmp(path, "https://", 8) == 0) {
+    snprintf(url, sizeof(url), "%s", path);
+  } else {
+    snprintf(url, sizeof(url), "%s%s%s", cfg->base_url, path[0] == '/' ? "" : "/", path);
+  }
+  const char *api_path = strstr(url, "/api/");
+  if (!api_path) api_path = path;
+  struct curl_slist *headers = build_headers(cfg, method, api_path, NULL);
+  curl_easy_setopt(curl, CURLOPT_URL, url);
+  curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+  curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, stdout_cb);
+  curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
+  curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, method);
+  curl_easy_setopt(curl, CURLOPT_TIMEOUT, 120L);
+  CURLcode rc = curl_easy_perform(curl);
+  long status = 0;
+  curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &status);
+  curl_slist_free_all(headers);
+  curl_easy_cleanup(curl);
+  if (rc != CURLE_OK) {
+    fprintf(stderr, "tweeta: curl: %s\n", curl_easy_strerror(rc));
+    return 1;
+  }
+  return status >= 200 && status < 300 ? 0 : (int)(status ? status : 1);
+}
+
+int http_download_file(Config *cfg, const char *method, const char *path, const char *output_path, bool also_stdout) {
+  char *body = NULL;
+  size_t len = 0;
+  int rc = http_capture(cfg, method, path, &body, &len);
+  if (rc != 0) {
+    free(body);
+    return rc;
+  }
+
+  FILE *f = fopen(output_path, "wb");
+  if (!f) {
+    perror(output_path);
+    free(body);
+    return 1;
+  }
+  if (len && fwrite(body, 1, len, f) != len) {
+    perror(output_path);
+    fclose(f);
+    free(body);
+    return 1;
+  }
+  fclose(f);
+
+  if (also_stdout && len) {
+    if (fwrite(body, 1, len, stdout) != len) {
+      perror("stdout");
+      free(body);
+      return 1;
+    }
+  }
+  free(body);
+  return 0;
+}

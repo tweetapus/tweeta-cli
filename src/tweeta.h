@@ -55,6 +55,9 @@ void load_config(Config *cfg);
 void save_config(const Config *cfg);
 
 int http_request(Config *cfg, const char *method, const char *path, const char *body, const char *ctype, const char *file_field, const char *file_path);
+int http_capture(Config *cfg, const char *method, const char *path, char **out, size_t *out_len);
+int http_stream(Config *cfg, const char *method, const char *path);
+int http_download_file(Config *cfg, const char *method, const char *path, const char *output_path, bool also_stdout);
 struct curl_slist *build_headers(const Config *cfg, const char *method, const char *path, const char *content_type);
 
 int cmd_named_route(Config *cfg, int argc, char **argv);
@@ -63,6 +66,7 @@ int cmd_request(Config *cfg, int argc, char **argv);
 int cmd_auth(Config *cfg, int argc, char **argv);
 int cmd_tweet(Config *cfg, int argc, char **argv);
 int cmd_admin(Config *cfg, int argc, char **argv);
+int cmd_upload_get_attachment(Config *cfg, int argc, char **argv);
 void endpoints(void);
 
 #endif
