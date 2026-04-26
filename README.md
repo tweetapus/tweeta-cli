@@ -69,3 +69,5 @@ You can override it with environment variables:
 - `TWEETA_CONFIG`
 
 Run `./tweeta help` for the complete command list.
+
+See [ROUTES.md](ROUTES.md) for detailed CLI usage for every named route.
