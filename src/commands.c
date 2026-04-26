@@ -1,4 +1,5 @@
 #include "tweeta.h"
+#include "cJSON.h"
 
 #include <errno.h>
 #include <stdio.h>
@@ -56,22 +57,40 @@ int cmd_request(Config *cfg, int argc, char **argv) {
   return http_request(cfg, method, path, body, body ? (json ? "application/json" : "text/plain") : NULL, upload_field, upload_file);
 }
 
+static const char *find_string_field_recursive(const cJSON *item, const char **keys, size_t key_count) {
+  if (!item) return NULL;
+  if (cJSON_IsObject(item)) {
+    const cJSON *child = NULL;
+    cJSON_ArrayForEach(child, item) {
+      for (size_t i = 0; i < key_count; i++) {
+        if (child->string && strcmp(child->string, keys[i]) == 0 && cJSON_IsString(child)) {
+          return cJSON_GetStringValue(child);
+        }
+      }
+      const char *found = find_string_field_recursive(child, keys, key_count);
+      if (found) return found;
+    }
+  } else if (cJSON_IsArray(item)) {
+    const cJSON *child = NULL;
+    cJSON_ArrayForEach(child, item) {
+      const char *found = find_string_field_recursive(child, keys, key_count);
+      if (found) return found;
+    }
+  }
+  return NULL;
+}
+
 void store_token_from_login(Config *cfg, const char *body) {
-  const char *keys[] = {"\"token\":\"", "\"authToken\":\"", "\"jwt\":\""};
-  for (size_t k = 0; k < sizeof(keys) / sizeof(keys[0]); k++) {
-    const char *p = strstr(body, keys[k]);
-    if (!p) continue;
-    p += strlen(keys[k]);
-    const char *e = strchr(p, '"');
-    if (!e) continue;
-    size_t n = (size_t)(e - p);
-    if (n >= sizeof(cfg->token)) n = sizeof(cfg->token) - 1;
-    memcpy(cfg->token, p, n);
-    cfg->token[n] = 0;
+  const char *keys[] = {"token", "authToken", "jwt"};
+  cJSON *root = cJSON_Parse(body);
+  if (!root) return;
+  const char *token = find_string_field_recursive(root, keys, sizeof(keys) / sizeof(keys[0]));
+  if (token) {
+    snprintf(cfg->token, sizeof(cfg->token), "%s", token);
     save_config(cfg);
     fprintf(stderr, "Saved token to %s\n", config_path());
-    return;
   }
+  cJSON_Delete(root);
 }
 
 int login_request(Config *cfg, const char *path, const char *json) {
@@ -187,76 +206,31 @@ int cmd_admin(Config *cfg, int argc, char **argv) {
   return r;
 }
 
-static char *json_string_after(const char *start, const char *key) {
-  const char *p = strstr(start, key);
-  if (!p) return NULL;
-  p += strlen(key);
-  const char *e = p;
-  Buffer b = {0};
-  b.data = xstrdup("");
-  while (*e) {
-    if (*e == '"' && (e == p || e[-1] != '\\')) break;
-    char ch = *e++;
-    if (ch == '\\' && *e) {
-      ch = *e++;
-      if (ch == 'n') ch = '\n';
-      else if (ch == 'r') ch = '\r';
-      else if (ch == 't') ch = '\t';
-    }
-    b.data = xrealloc(b.data, b.len + 2);
-    b.data[b.len++] = ch;
-    b.data[b.len] = 0;
+static char *attachment_ref_from_item(const cJSON *item) {
+  const char *keys[] = {"file_url", "url", "file_name", "filename"};
+  if (cJSON_IsString(item)) return xstrdup(cJSON_GetStringValue(item));
+  if (!cJSON_IsObject(item)) return NULL;
+  for (size_t i = 0; i < sizeof(keys) / sizeof(keys[0]); i++) {
+    const cJSON *value = cJSON_GetObjectItemCaseSensitive(item, keys[i]);
+    if (cJSON_IsString(value) && cJSON_GetStringValue(value)[0]) return xstrdup(cJSON_GetStringValue(value));
   }
-  return b.len ? b.data : (free(b.data), NULL);
+  return NULL;
 }
 
 static char *attachment_ref_from_post_json(const char *json) {
-  const char *a = strstr(json, "\"attachments\"");
-  if (!a) return NULL;
-  char *refs[1] = {0};
-  int count = 0;
-  /* Reuse the all-attachment parser with a single-slot output. */
-  const char *p = strchr(a, '[');
-  if (!p) return NULL;
-  bool in_string = false, esc = false;
-  int depth = 0;
-  const char *obj_start = NULL;
-  for (; *p; p++) {
-    char ch = *p;
-    if (in_string) {
-      if (esc) esc = false;
-      else if (ch == '\\') esc = true;
-      else if (ch == '"') in_string = false;
-      continue;
-    }
-    if (ch == '"') {
-      in_string = true;
-      continue;
-    }
-    if (ch == '{') {
-      if (depth == 0) obj_start = p;
-      depth++;
-    } else if (ch == '}') {
-      if (depth > 0) depth--;
-      if (depth == 0 && obj_start) {
-        size_t n = (size_t)(p - obj_start + 1);
-        char *obj = malloc(n + 1);
-        if (!obj) die("out of memory");
-        memcpy(obj, obj_start, n);
-        obj[n] = 0;
-        refs[count] = json_string_after(obj, "\"file_url\":\"");
-        if (!refs[count]) refs[count] = json_string_after(obj, "\"url\":\"");
-        if (!refs[count]) refs[count] = json_string_after(obj, "\"file_name\":\"");
-        if (!refs[count]) refs[count] = json_string_after(obj, "\"filename\":\"");
-        free(obj);
-        if (refs[count]) return refs[count];
-        obj_start = NULL;
-      }
-    } else if (ch == ']' && depth == 0) {
-      break;
+  cJSON *root = cJSON_Parse(json);
+  if (!root) return NULL;
+  const cJSON *attachments = cJSON_GetObjectItemCaseSensitive(root, "attachments");
+  char *ref = NULL;
+  if (cJSON_IsArray(attachments)) {
+    const cJSON *item = NULL;
+    cJSON_ArrayForEach(item, attachments) {
+      ref = attachment_ref_from_item(item);
+      if (ref) break;
     }
   }
-  return NULL;
+  cJSON_Delete(root);
+  return ref;
 }
 
 static bool looks_like_upload_filename(const char *s) {
@@ -315,54 +289,25 @@ static int ensure_download_dir(void) {
 
 static int collect_attachment_refs(const char *json, char ***out_refs) {
   *out_refs = NULL;
-  const char *a = strstr(json, "\"attachments\"");
-  if (!a) return 0;
-  const char *p = strchr(a, '[');
-  if (!p) return 0;
+  cJSON *root = cJSON_Parse(json);
+  if (!root) return 0;
+  const cJSON *attachments = cJSON_GetObjectItemCaseSensitive(root, "attachments");
+  if (!cJSON_IsArray(attachments)) {
+    cJSON_Delete(root);
+    return 0;
+  }
 
   char **refs = NULL;
   int count = 0;
-  bool in_string = false, esc = false;
-  int depth = 0;
-  const char *obj_start = NULL;
-  for (; *p; p++) {
-    char ch = *p;
-    if (in_string) {
-      if (esc) esc = false;
-      else if (ch == '\\') esc = true;
-      else if (ch == '"') in_string = false;
-      continue;
-    }
-    if (ch == '"') {
-      in_string = true;
-      continue;
-    }
-    if (ch == '{') {
-      if (depth == 0) obj_start = p;
-      depth++;
-    } else if (ch == '}') {
-      if (depth > 0) depth--;
-      if (depth == 0 && obj_start) {
-        size_t n = (size_t)(p - obj_start + 1);
-        char *obj = malloc(n + 1);
-        if (!obj) die("out of memory");
-        memcpy(obj, obj_start, n);
-        obj[n] = 0;
-        char *ref = json_string_after(obj, "\"file_url\":\"");
-        if (!ref) ref = json_string_after(obj, "\"url\":\"");
-        if (!ref) ref = json_string_after(obj, "\"file_name\":\"");
-        if (!ref) ref = json_string_after(obj, "\"filename\":\"");
-        free(obj);
-        if (ref) {
-          refs = xrealloc(refs, sizeof(*refs) * (size_t)(count + 1));
-          refs[count++] = ref;
-        }
-        obj_start = NULL;
-      }
-    } else if (ch == ']' && depth == 0) {
-      break;
+  const cJSON *item = NULL;
+  cJSON_ArrayForEach(item, attachments) {
+    char *ref = attachment_ref_from_item(item);
+    if (ref) {
+      refs = xrealloc(refs, sizeof(*refs) * (size_t)(count + 1));
+      refs[count++] = ref;
     }
   }
+  cJSON_Delete(root);
   *out_refs = refs;
   return count;
 }
