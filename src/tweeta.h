@@ -7,7 +7,7 @@
 
 #define VERSION "0.1.0"
 #define DEFAULT_BASE_URL "https://tweeta.tiago.zip"
-#define UA "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36 TweetapusAgentCLI/0.1"
+#define UA "X-Tweetapus-Client: C-CLI;dismay-reflux-sage@duck.com;0.0.1"
 
 typedef struct {
   char *data;
