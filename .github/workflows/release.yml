@@ -1,0 +1,255 @@
+name: Build and Release
+
+on:
+  push:
+    branches:
+      - "**"
+
+permissions:
+  contents: write
+
+env:
+  CURL_VERSION: 8.19.0
+  OPENSSL_VERSION: 3.6.2
+  OPENSSL_ARCHIVE_URL: https://github.com/openssl/openssl/releases/download/openssl-3.6.2/openssl-3.6.2.tar.gz
+
+jobs:
+  metadata:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      prerelease: ${{ steps.version.outputs.prerelease }}
+    steps:
+      - name: Generate numeric version
+        id: version
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          set -eu
+          stamp="$(date -u +%Y%m%d)"
+          version="0.${stamp}.${GITHUB_RUN_NUMBER}"
+          prerelease=false
+          if [ "${GITHUB_REF_NAME}" != "${DEFAULT_BRANCH}" ]; then
+            prerelease=true
+          fi
+          echo "version=${version}" >>"$GITHUB_OUTPUT"
+          echo "prerelease=${prerelease}" >>"$GITHUB_OUTPUT"
+
+  build-linux:
+    needs: metadata
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x64
+            docker_platform: linux/amd64
+          - arch: arm64
+            docker_platform: linux/arm64
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Build Linux release binary
+        run: |
+          set -eu
+          mkdir -p dist
+          docker run --rm \
+            --platform "${{ matrix.docker_platform }}" \
+            -v "${PWD}:/src" \
+            -w /src \
+            alpine:3.21 \
+            sh -euxc "
+              apk add --no-cache \
+                build-base \
+                file \
+                pkgconf \
+                curl-dev \
+                curl-static \
+                libpsl-static \
+                libidn2-static \
+                libunistring-static \
+                openssl-libs-static \
+                zlib-static \
+                brotli-static \
+                zstd-static \
+                nghttp2-static
+              sh ./scripts/build-release.sh linux ${{ matrix.arch }} dist/tweeta-linux-${{ matrix.arch }}
+            "
+
+      - name: Upload Linux artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tweeta-linux-${{ matrix.arch }}
+          path: dist/tweeta-linux-${{ matrix.arch }}
+          if-no-files-found: error
+
+  build-darwin:
+    needs: metadata
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x64
+            runner: macos-26-intel
+            openssl_target: darwin64-x86_64-cc
+          - arch: arm64
+            runner: macos-26
+            openssl_target: darwin64-arm64-cc
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          set -eu
+          brew install pkgconf
+
+      - name: Build static OpenSSL for Darwin
+        run: |
+          set -eu
+          work_dir="${RUNNER_TEMP}/openssl-build"
+          prefix="${RUNNER_TEMP}/openssl-static"
+          archive="openssl-${OPENSSL_VERSION}.tar.gz"
+          rm -rf "${work_dir}" "${prefix}"
+          mkdir -p "${work_dir}" "${prefix}"
+          curl -fsSL "${OPENSSL_ARCHIVE_URL}" -o "${RUNNER_TEMP}/${archive}"
+          tar -C "${work_dir}" -xf "${RUNNER_TEMP}/${archive}"
+          cd "${work_dir}/openssl-${OPENSSL_VERSION}"
+          ./Configure \
+            ${{ matrix.openssl_target }} \
+            no-shared \
+            no-tests \
+            --prefix="${prefix}" \
+            --openssldir="${prefix}/ssl"
+          make -j"$(sysctl -n hw.ncpu)"
+          make install_sw
+
+      - name: Build static libcurl for Darwin
+        run: |
+          set -eu
+          work_dir="${RUNNER_TEMP}/curl-build"
+          prefix="${RUNNER_TEMP}/curl-static"
+          archive="curl-${CURL_VERSION}.tar.xz"
+          rm -rf "${work_dir}" "${prefix}"
+          mkdir -p "${work_dir}" "${prefix}"
+          curl -fsSL "https://curl.se/download/${archive}" -o "${RUNNER_TEMP}/${archive}"
+          tar -C "${work_dir}" -xf "${RUNNER_TEMP}/${archive}"
+          cd "${work_dir}/curl-${CURL_VERSION}"
+          export PKG_CONFIG_PATH="${RUNNER_TEMP}/openssl-static/lib/pkgconfig${PKG_CONFIG_PATH:+:${PKG_CONFIG_PATH}}"
+          ./configure \
+            --prefix="${prefix}" \
+            --disable-shared \
+            --enable-static \
+            --with-openssl="${RUNNER_TEMP}/openssl-static" \
+            --without-brotli \
+            --without-libidn2 \
+            --without-libpsl \
+            --without-libssh2 \
+            --without-nghttp2 \
+            --without-nghttp3 \
+            --without-ngtcp2 \
+            --without-ngtcp2_crypto_quictls \
+            --without-ngtcp2_crypto_gnutls \
+            --without-zlib \
+            --without-zstd \
+            --disable-ldap \
+            --disable-ldaps \
+            --disable-rtsp \
+            --disable-dict \
+            --disable-file \
+            --disable-ftp \
+            --disable-gopher \
+            --disable-imap \
+            --disable-ipfs \
+            --disable-ipns \
+            --disable-pop3 \
+            --disable-mqtt \
+            --disable-smb \
+            --disable-smtp \
+            --disable-telnet \
+            --disable-tftp \
+            --disable-manual
+          make -j"$(sysctl -n hw.ncpu)"
+          make install
+
+      - name: Build Darwin release binary
+        run: |
+          set -eu
+          export PKG_CONFIG_PATH="${RUNNER_TEMP}/curl-static/lib/pkgconfig:${RUNNER_TEMP}/openssl-static/lib/pkgconfig"
+          unset CPATH C_INCLUDE_PATH CPLUS_INCLUDE_PATH LIBRARY_PATH SDKROOT
+          unset LIBCURL_CFLAGS LIBCURL_LIBS
+          mkdir -p dist
+          sh ./scripts/build-release.sh darwin ${{ matrix.arch }} dist/tweeta-darwin-${{ matrix.arch }}
+
+      - name: Upload Darwin artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tweeta-darwin-${{ matrix.arch }}
+          path: dist/tweeta-darwin-${{ matrix.arch }}
+          if-no-files-found: error
+
+  release:
+    needs:
+      - metadata
+      - build-linux
+      - build-darwin
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Download release artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+
+      - name: Flatten artifact layout
+        run: |
+          set -eu
+          mkdir -p release
+          find dist -type f -name 'tweeta-*' -exec cp {} release/ \;
+          ls -l release
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.metadata.outputs.version }}
+          PRERELEASE: ${{ needs.metadata.outputs.prerelease }}
+        run: |
+          set -eu
+          notes_file="$(mktemp)"
+          {
+            echo "Automated build release"
+            echo
+            echo "Version: ${VERSION}"
+            echo "Branch: ${GITHUB_REF_NAME}"
+            echo "Commit: ${GITHUB_SHA}"
+            echo "Workflow run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          } >"${notes_file}"
+
+          if [ "${PRERELEASE}" = "true" ]; then
+            gh release create "${VERSION}" \
+              --target "${GITHUB_SHA}" \
+              --title "${VERSION}" \
+              --notes-file "${notes_file}" \
+              --prerelease \
+              release/tweeta-linux-x64 \
+              release/tweeta-linux-arm64 \
+              release/tweeta-darwin-x64 \
+              release/tweeta-darwin-arm64
+          else
+            gh release create "${VERSION}" \
+              --target "${GITHUB_SHA}" \
+              --title "${VERSION}" \
+              --notes-file "${notes_file}" \
+              --latest \
+              release/tweeta-linux-x64 \
+              release/tweeta-linux-arm64 \
+              release/tweeta-darwin-x64 \
+              release/tweeta-darwin-arm64
+          fi

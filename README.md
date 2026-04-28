@@ -36,7 +36,7 @@ If `npm-binaries/` is already populated, `prepack` will reuse those files; set `
 
 Publishing:
 
-The intended publish path is GitHub Actions or similar CI, not a local machine.
+GitHub Actions is intended to publish a GitHub release on every branch push. The generated release version is numeric-only and uses the form `0.YYYYMMDD.RUN_NUMBER`. Pushes outside the default branch are marked as prereleases so the default-branch release remains the one exposed by `releases/latest`.
 
 Configure:
 

@@ -3,4 +3,5 @@ tweeta
 *.o
 node_modules/
 *.tgz
+dist/
 npm-binaries/
