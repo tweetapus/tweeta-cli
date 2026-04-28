@@ -1,0 +1,7 @@
+interface:
+  display_name: "Tweeta CLI"
+  short_description: "Operate the local Tweetapus CLI"
+  default_prompt: "Use $tweeta-cli to interact with a Tweetapus server through the installed tweeta command."
+
+policy:
+  allow_implicit_invocation: true
