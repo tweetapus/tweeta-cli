@@ -8,11 +8,35 @@ It exposes:
 - A universal request escape hatch for debugging or newly-added upstream endpoints.
 - Tweetapus-compatible request headers required by the upstream API.
 
-Build:
+Build from source:
 
 ```sh
 make
 ```
+
+Install from npm once published:
+
+```sh
+npm install -g tweeta-cli
+```
+
+The npm package contains prebuilt static `tweeta` binaries, so installation on the end user's machine does not compile anything and does not fetch additional artifacts.
+
+The package is not published yet. The npm packaging in this repository is there so it can be published later from CI.
+
+When the package is published, it is intended to be assembled before publish by downloading release assets from `https://github.com/tweetapus/tweeta-cli/releases/latest`. It expects assets named:
+
+- `tweeta-linux-x64`
+- `tweeta-linux-arm64`
+- `tweeta-darwin-x64`
+- `tweeta-darwin-arm64`
+
+For packaging, you can override the release API URL with `TWEETA_INSTALL_RELEASE_URL`, or inject the full release payload with `TWEETA_INSTALL_RELEASE_JSON`.
+If `npm-binaries/` is already populated, `prepack` will reuse those files; set `TWEETA_PREPACK_REFRESH=1` to force a fresh download during publish.
+
+Publishing:
+
+The intended publish path is GitHub Actions or similar CI, not a local machine.
 
 Configure:
 
@@ -20,6 +44,8 @@ Configure:
 ./tweeta config set-base https://example.com
 ./tweeta auth login alice 'password'
 ```
+
+If installed from npm, use `tweeta` instead of `./tweeta`.
 
 Named API access:
 

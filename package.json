@@ -1,0 +1,44 @@
+{
+  "name": "tweeta-cli",
+  "version": "0.1.0",
+  "description": "CLI wrapper for the Tweetapus tweeta client",
+  "license": "AGPL-3.0-or-later",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tweetapus/tweeta-cli.git"
+  },
+  "homepage": "https://github.com/tweetapus/tweeta-cli",
+  "bugs": {
+    "url": "https://github.com/tweetapus/tweeta-cli/issues"
+  },
+  "bin": {
+    "tweeta": "bin/tweeta.js"
+  },
+  "files": [
+    "bin/",
+    "npm-binaries/",
+    "scripts/",
+    "README.md",
+    "LICENSE",
+    "ROUTES.md"
+  ],
+  "scripts": {
+    "prepack": "node scripts/prepack.js"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "os": [
+    "linux",
+    "darwin"
+  ],
+  "cpu": [
+    "x64",
+    "arm64"
+  ],
+  "keywords": [
+    "tweetapus",
+    "twitter",
+    "cli"
+  ]
+}

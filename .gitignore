@@ -1,3 +1,6 @@
 tweetapus/
 tweeta
 *.o
+node_modules/
+*.tgz
+npm-binaries/
