@@ -4,9 +4,10 @@ on:
   push:
     branches:
       - "**"
+  pull_request:
 
 permissions:
-  contents: write
+  contents: read
 
 env:
   CURL_VERSION: 8.19.0
@@ -198,7 +199,10 @@ jobs:
       - metadata
       - build-linux
       - build-darwin
+    if: github.event_name == 'push' && github.ref_name == github.event.repository.default_branch
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
