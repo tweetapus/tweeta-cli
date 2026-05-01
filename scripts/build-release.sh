@@ -29,30 +29,32 @@ case "$target_os" in
   linux)
     libcurl_libs=${LIBCURL_LIBS:-$(pkg-config --static --libs libcurl)}
 
-    make \
+    ./configure \
       CC="${CC:-cc}" \
       PKG_CONFIG="${PKG_CONFIG:-pkg-config}" \
-      CPPFLAGS="${CPPFLAGS-} -D_POSIX_C_SOURCE=200809L" \
+      CPPFLAGS="${CPPFLAGS-}" \
       CFLAGS="${CFLAGS:--std=c11 -Wall -Wextra -Wpedantic -O2}" \
       LDFLAGS="${LDFLAGS:-} -static" \
       LIBCURL_CFLAGS="$libcurl_cflags" \
-      LIBCURL_LIBS="$libcurl_libs" \
-      tweeta
+      LIBCURL_LIBS="$libcurl_libs"
+
+    make tweeta
 
     file tweeta | grep -F "statically linked" >/dev/null
     ;;
   darwin)
     libcurl_libs=${LIBCURL_LIBS:-$(pkg-config --static --libs libcurl)}
 
-    make \
+    ./configure \
       CC="${CC:-cc}" \
       PKG_CONFIG="${PKG_CONFIG:-pkg-config}" \
-      CPPFLAGS="${CPPFLAGS-} -D_POSIX_C_SOURCE=200809L" \
+      CPPFLAGS="${CPPFLAGS-}" \
       CFLAGS="${CFLAGS:--std=c11 -Wall -Wextra -Wpedantic -O2}" \
       LDFLAGS="${LDFLAGS:-}" \
       LIBCURL_CFLAGS="$libcurl_cflags" \
-      LIBCURL_LIBS="$libcurl_libs" \
-      tweeta
+      LIBCURL_LIBS="$libcurl_libs"
+
+    make tweeta
 
     if otool -L tweeta | tail -n +2 | awk '{print $1}' | grep -E '^(/opt/homebrew|/usr/local|/opt/local)' >/dev/null; then
       echo "unexpected non-system dynamic dependency in Darwin build" >&2

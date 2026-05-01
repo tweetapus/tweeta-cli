@@ -1,5 +1,9 @@
 tweetapus/
 tweeta
+Makefile
+config.log
+config.status
+autom4te.cache/
 *.o
 node_modules/
 *.tgz
