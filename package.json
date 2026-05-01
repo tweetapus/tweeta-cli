@@ -1,5 +1,5 @@
 {
-  "name": "tweeta-cli",
+  "name": "tweetapus",
   "version": "0.1.0",
   "description": "CLI wrapper for the Tweetapus tweeta client",
   "license": "AGPL-3.0-or-later",
