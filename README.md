@@ -1,4 +1,4 @@
-# tweetapus
+# tweeta-cli
 
 `tweeta` is a C/libcurl command-line client for Tweetapus, designed for AI agents and automation.
 
