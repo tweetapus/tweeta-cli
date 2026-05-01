@@ -4405,7 +4405,7 @@ test -z "$INSTALL_DATA" && INSTALL_DATA='${INSTALL} -m 644'
 if test "${ac_cv_env_CFLAGS_set}" != set
 then :
 
-  CFLAGS="-std=c99 -Wall -Wextra -Wpedantic -O2"
+  CFLAGS="-std=c11 -Wall -Wextra -Wpedantic -O2"
 
 fi
 
