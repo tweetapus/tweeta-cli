@@ -32,6 +32,8 @@ When the package is published, it is intended to be assembled before publish by 
 - `tweeta-darwin-x64`
 - `tweeta-darwin-arm64`
 
+Native Windows builds are not currently supported and are unlikely to receive first-class support. Windows users can run `tweeta` through WSL using the install or build instructions above.
+
 For packaging, you can override the release API URL with `TWEETA_INSTALL_RELEASE_URL`, or inject the full release payload with `TWEETA_INSTALL_RELEASE_JSON`.
 If `npm-binaries/` is already populated, `prepack` will reuse those files; set `TWEETA_PREPACK_REFRESH=1` to force a fresh download during publish.
 
@@ -98,3 +100,8 @@ You can override it with environment variables:
 Run `./tweeta help` for the complete command list.
 
 See [ROUTES.md](ROUTES.md) for detailed CLI usage for every named route.
+
+## Windows ports
+
+I am willing to endorse a native Windows port if a Windows user wants to create and maintain one.
+However, this project remains firmly a Unix program. I will not make design or maintenance decisions around Win32 portability, so a Windows port may become difficult to maintain over time.
