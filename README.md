@@ -8,10 +8,11 @@ It exposes:
 - A universal request escape hatch for debugging or newly-added upstream endpoints.
 - Tweetapus-compatible request headers required by the upstream API.
 
-Build from source:
+Install from source:
 
 ```sh
 make
+make install
 ```
 
 Install from npm:
@@ -44,48 +45,46 @@ GitHub Actions is intended to publish a GitHub release on every branch push. The
 Configure:
 
 ```sh
-./tweeta config set-base https://example.com
-./tweeta auth login alice 'password'
+tweeta config set-base https://example.com
+tweeta auth login alice 'password'
 ```
-
-If installed from npm, use `tweeta` instead of `./tweeta`.
 
 Named API access:
 
 ```sh
-./tweeta routes
-./tweeta auth me
-./tweeta tweets create --content 'hello'
-./tweeta admin verify USER_ID --verified true
-./tweeta admin update-user USER_ID --character_limit 10000
-./tweeta admin delete-post POST_ID
+tweeta routes
+tweeta auth me
+tweeta tweets create --content 'hello'
+tweeta admin verify USER_ID --verified true
+tweeta admin update-user USER_ID --character_limit 10000
+tweeta admin delete-post POST_ID
 ```
 
 Examples:
 
 ```sh
-./tweeta me
-./tweeta timeline home --limit 20
-./tweeta tweet create --content 'hello from an agent'
-./tweeta tweets create --content 'hello from the full command table'
-./tweeta tweet like POST_ID
-./tweeta profile get alice
-./tweeta profile follow alice
-./tweeta upload media ./image.png
-./tweeta upload get --id POST_ID > attachment.bin
-./tweeta upload get --id POST_ID --all
-./tweeta upload get --id POST_ID --really-all > first-attachment.bin
-./tweeta admin users --search alice
-./tweeta admin user USER_ID
-./tweeta admin suspend USER_ID --reason spam --action suspend --duration 60
-./tweeta admin unsuspend USER_ID
-./tweeta admin stats
+tweeta me
+tweeta timeline home --limit 20
+tweeta tweet create --content 'hello from an agent'
+tweeta tweets create --content 'hello from the full command table'
+tweeta tweet like POST_ID
+tweeta profile get alice
+tweeta profile follow alice
+tweeta upload media ./image.png
+tweeta upload get --id POST_ID > attachment.bin
+tweeta upload get --id POST_ID --all
+tweeta upload get --id POST_ID --really-all > first-attachment.bin
+tweeta admin users --search alice
+tweeta admin user USER_ID
+tweeta admin suspend USER_ID --reason spam --action suspend --duration 60
+tweeta admin unsuspend USER_ID
+tweeta admin stats
 ```
 
 Command format:
 
 ```sh
-./tweeta GROUP ACTION [POSITIONAL_ARGS...] [--field value...] [--file path]
+tweeta GROUP ACTION [POSITIONAL_ARGS...] [--field value...] [--file path]
 ```
 
 GET commands turn `--field value` pairs into query parameters. Mutating commands turn them into JSON bodies automatically, with `true`, `false`, `null`, numbers, arrays, and objects preserved as typed JSON values. Multipart endpoints use `--file`.
@@ -97,7 +96,7 @@ You can override it with environment variables:
 - `TWEETA_TOKEN`
 - `TWEETA_CONFIG`
 
-Run `./tweeta help` for the complete command list.
+Run `tweeta help` for the complete command list.
 
 See [ROUTES.md](ROUTES.md) for detailed CLI usage for every named route.
 
