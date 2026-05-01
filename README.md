@@ -14,13 +14,14 @@ Build from source:
 make
 ```
 
-Install from npm once published:
+Install from npm:
 
 ```sh
 npm install -g tweetapus
 ```
 
-The npm package contains prebuilt static `tweeta` binaries, so installation on the end user's machine does not compile anything and does not fetch additional artifacts.
+The npm package is published as `tweetapus` and contains prebuilt static `tweeta` binaries for all supported platforms, so installation on the end user's machine does not compile anything and does not fetch additional artifacts.
+This makes the npm install much larger than building or installing with `make`: the binaries are statically linked except for libc on macOS, which cannot be statically linked and therefore is not, and the package includes all four platform binaries regardless of the platform installing it. As of this writing, a locally built dynamically linked AMD64 Linux binary is 148KB on my system because it only includes one binary for that machine; the npm install is nearly 61MB.
 
 The package is published from CI after a successful default-branch release.
 
