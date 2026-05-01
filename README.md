@@ -1,4 +1,4 @@
-# tweeta-cli
+# tweetapus
 
 `tweeta` is a C/libcurl command-line client for Tweetapus, designed for AI agents and automation.
 
@@ -17,12 +17,12 @@ make
 Install from npm once published:
 
 ```sh
-npm install -g tweeta-cli
+npm install -g tweetapus
 ```
 
 The npm package contains prebuilt static `tweeta` binaries, so installation on the end user's machine does not compile anything and does not fetch additional artifacts.
 
-The package is not published yet. The npm packaging in this repository is there so it can be published later from CI.
+The package is published from CI after a successful default-branch release.
 
 When the package is published, it is intended to be assembled before publish by downloading release assets from `https://github.com/tweetapus/tweeta-cli/releases/latest`. It expects assets named:
 

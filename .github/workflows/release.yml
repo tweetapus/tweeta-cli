@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: write
+  id-token: write
 
 env:
   CURL_VERSION: 8.19.0
@@ -253,3 +254,47 @@ jobs:
               release/tweeta-darwin-x64 \
               release/tweeta-darwin-arm64
           fi
+
+  publish-npm:
+    needs:
+      - metadata
+      - release
+    if: github.ref_name == github.event.repository.default_branch
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          registry-url: https://registry.npmjs.org
+
+      - name: Download release artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+
+      - name: Prepare npm package
+        env:
+          VERSION: ${{ needs.metadata.outputs.version }}
+        run: |
+          set -eu
+          rm -rf npm-binaries
+          mkdir -p npm-binaries
+          find dist -type f -name 'tweeta-*' -exec cp {} npm-binaries/ \;
+          for target in linux-x64 linux-arm64 darwin-x64 darwin-arm64; do
+            test -f "npm-binaries/tweeta-${target}"
+          done
+          chmod 755 npm-binaries/tweeta-*
+          npm version --no-git-tag-version "${VERSION}"
+          npm pack --dry-run
+
+      - name: Publish npm package
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish --provenance
