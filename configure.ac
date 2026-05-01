@@ -7,7 +7,7 @@ AC_PROG_CC
 AC_PROG_INSTALL
 
 AS_IF([test "${ac_cv_env_CFLAGS_set}" != set], [
-  CFLAGS="-std=c11 -Wall -Wextra -Wpedantic -O2"
+  CFLAGS="-std=c99 -Wall -Wextra -Wpedantic -O2"
 ])
 
 AC_ARG_VAR([PKG_CONFIG], [path to pkg-config])

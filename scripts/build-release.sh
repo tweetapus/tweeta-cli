@@ -33,7 +33,7 @@ case "$target_os" in
       CC="${CC:-cc}" \
       PKG_CONFIG="${PKG_CONFIG:-pkg-config}" \
       CPPFLAGS="${CPPFLAGS-}" \
-      CFLAGS="${CFLAGS:--std=c11 -Wall -Wextra -Wpedantic -O2}" \
+      CFLAGS="${CFLAGS:--std=c99 -Wall -Wextra -Wpedantic -O2}" \
       LDFLAGS="${LDFLAGS:-} -static" \
       LIBCURL_CFLAGS="$libcurl_cflags" \
       LIBCURL_LIBS="$libcurl_libs"
@@ -49,7 +49,7 @@ case "$target_os" in
       CC="${CC:-cc}" \
       PKG_CONFIG="${PKG_CONFIG:-pkg-config}" \
       CPPFLAGS="${CPPFLAGS-}" \
-      CFLAGS="${CFLAGS:--std=c11 -Wall -Wextra -Wpedantic -O2}" \
+      CFLAGS="${CFLAGS:--std=c99 -Wall -Wextra -Wpedantic -O2}" \
       LDFLAGS="${LDFLAGS:-}" \
       LIBCURL_CFLAGS="$libcurl_cflags" \
       LIBCURL_LIBS="$libcurl_libs"
