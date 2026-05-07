@@ -2,7 +2,7 @@
 
 This file documents every named route exposed by `tweeta` as a CLI command. It is intentionally CLI-focused: it explains how to invoke each route, how positional arguments are substituted, and how the client shapes your flags into a request. It does **not** attempt to describe the upstream API schema, validation rules, or response payload contracts.
 
-The source of truth for the route table is [`src/routes.c`](src/routes.c). At the time of writing, the CLI exposes **309 named routes** across **29 route groups**.
+The source of truth for the route table is [`src/routes.c`](src/routes.c). At the time of writing, the CLI exposes **317 named routes** across **29 route groups**.
 
 ## Before You Start
 
@@ -66,7 +66,7 @@ These are not separate named routes, but they matter when you are working from t
 
 - [`core`](#core) - 5 route(s)
 - [`auth`](#auth) - 18 route(s)
-- [`tweets`](#tweets) - 17 route(s)
+- [`tweets`](#tweets) - 18 route(s)
 - [`timeline`](#timeline) - 5 route(s)
 - [`profile`](#profile) - 41 route(s)
 - [`bookmarks`](#bookmarks) - 3 route(s)
@@ -74,7 +74,7 @@ These are not separate named routes, but they matter when you are working from t
 - [`muted`](#muted) - 7 route(s)
 - [`communities`](#communities) - 31 route(s)
 - [`delegates`](#delegates) - 10 route(s)
-- [`dm`](#dm) - 22 route(s)
+- [`dm`](#dm) - 23 route(s)
 - [`notifications`](#notifications) - 4 route(s)
 - [`push`](#push) - 4 route(s)
 - [`lists`](#lists) - 14 route(s)
@@ -92,7 +92,7 @@ These are not separate named routes, but they matter when you are working from t
 - [`explore`](#explore) - 16 route(s)
 - [`mpi`](#mpi) - 6 route(s)
 - [`shop`](#shop) - 8 route(s)
-- [`admin`](#admin) - 74 route(s)
+- [`admin`](#admin) - 80 route(s)
 
 ## core
 
@@ -381,6 +381,15 @@ Tweet creation, retrieval, engagement, and moderation-adjacent tweet operations.
 - Request shape: JSON body route
 - CLI behavior: After the positional arguments, every `--name value` pair becomes a JSON object field. The CLI auto-types literal `true`, `false`, `null`, and numeric values, and it passes values beginning with `{` or `[` through as raw JSON. Everything else is sent as a JSON string. A bare flag with no value becomes `true`.
 - Example: `./tweeta tweets poll-vote ID --field value --count 3 --enabled true`
+
+### `tweets poll-multi-vote`
+
+- Command: `./tweeta tweets poll-multi-vote ID [--field value ...]`
+- HTTP target: `POST /api/tweets/:id/poll/multi-vote`
+- Path arguments: 1 positional argument. `ID` fills `:id`.
+- Request shape: JSON body route
+- CLI behavior: After the positional arguments, every `--name value` pair becomes a JSON object field. The CLI auto-types literal `true`, `false`, `null`, and numeric values, and it passes values beginning with `{` or `[` through as raw JSON. Everything else is sent as a JSON string. A bare flag with no value becomes `true`.
+- Example: `./tweeta tweets poll-multi-vote ID --answers '["OPTION_ID_1","OPTION_ID_2"]'`
 
 ### `tweets likes`
 
@@ -1549,6 +1558,15 @@ Direct-message conversation, membership, message, invite, and pin operations.
 - Request shape: JSON body route
 - CLI behavior: After the positional arguments, every `--name value` pair becomes a JSON object field. The CLI auto-types literal `true`, `false`, `null`, and numeric values, and it passes values beginning with `{` or `[` through as raw JSON. Everything else is sent as a JSON string. A bare flag with no value becomes `true`.
 - Example: `./tweeta dm typing-stop ID --field value --count 3 --enabled true`
+
+### `dm draft`
+
+- Command: `./tweeta dm draft ID [--field value ...]`
+- HTTP target: `POST /api/dm/conversations/:id/draft`
+- Path arguments: 1 positional argument. `ID` fills `:id`.
+- Request shape: JSON body route
+- CLI behavior: After the positional arguments, every `--name value` pair becomes a JSON object field. The CLI auto-types literal `true`, `false`, `null`, and numeric values, and it passes values beginning with `{` or `[` through as raw JSON. Everything else is sent as a JSON string. A bare flag with no value becomes `true`.
+- Example: `./tweeta dm draft ID --content 'still typing...'`
 
 ### `dm edit`
 
@@ -2757,6 +2775,60 @@ Admin-only moderation, user, post, DM, fact-check, IP, badge, and shop routes.
 - CLI behavior: After the positional arguments, every `--name value` pair becomes a JSON object field. The CLI auto-types literal `true`, `false`, `null`, and numeric values, and it passes values beginning with `{` or `[` through as raw JSON. Everything else is sent as a JSON string. A bare flag with no value becomes `true`.
 - Example: `./tweeta admin fake-notification --field value --count 3 --enabled true`
 
+### `admin support-tickets`
+
+- Command: `./tweeta admin support-tickets [--field value ...]`
+- HTTP target: `GET /api/admin/support-tickets`
+- Path arguments: None.
+- Request shape: Query route
+- CLI behavior: After the positional arguments, every `--name value` pair is appended as a URL query parameter. If you provide a flag with no following value, the CLI sends it as `name=true`. Values are URL-encoded strings; there is no JSON type coercion for query routes.
+- Example: `./tweeta admin support-tickets --status open --limit 20`
+
+### `admin claim-support-ticket`
+
+- Command: `./tweeta admin claim-support-ticket ID [--field value ...]`
+- HTTP target: `POST /api/admin/support-tickets/:id/claim`
+- Path arguments: 1 positional argument. `ID` fills `:id`.
+- Request shape: JSON body route
+- CLI behavior: After the positional arguments, every `--name value` pair becomes a JSON object field. The CLI auto-types literal `true`, `false`, `null`, and numeric values, and it passes values beginning with `{` or `[` through as raw JSON. Everything else is sent as a JSON string. A bare flag with no value becomes `true`.
+- Example: `./tweeta admin claim-support-ticket ID`
+
+### `admin support-ticket-draft`
+
+- Command: `./tweeta admin support-ticket-draft ID [--field value ...]`
+- HTTP target: `GET /api/admin/support-tickets/:id/draft`
+- Path arguments: 1 positional argument. `ID` fills `:id`.
+- Request shape: Query route
+- CLI behavior: After the positional arguments, every `--name value` pair is appended as a URL query parameter. If you provide a flag with no following value, the CLI sends it as `name=true`. Values are URL-encoded strings; there is no JSON type coercion for query routes.
+- Example: `./tweeta admin support-ticket-draft ID`
+
+### `admin support-ticket`
+
+- Command: `./tweeta admin support-ticket ID [--field value ...]`
+- HTTP target: `GET /api/admin/support-tickets/:id`
+- Path arguments: 1 positional argument. `ID` fills `:id`.
+- Request shape: Query route
+- CLI behavior: After the positional arguments, every `--name value` pair is appended as a URL query parameter. If you provide a flag with no following value, the CLI sends it as `name=true`. Values are URL-encoded strings; there is no JSON type coercion for query routes.
+- Example: `./tweeta admin support-ticket ID`
+
+### `admin reply-support-ticket`
+
+- Command: `./tweeta admin reply-support-ticket ID [--field value ...]`
+- HTTP target: `POST /api/admin/support-tickets/:id/reply`
+- Path arguments: 1 positional argument. `ID` fills `:id`.
+- Request shape: JSON body route
+- CLI behavior: After the positional arguments, every `--name value` pair becomes a JSON object field. The CLI auto-types literal `true`, `false`, `null`, and numeric values, and it passes values beginning with `{` or `[` through as raw JSON. Everything else is sent as a JSON string. A bare flag with no value becomes `true`.
+- Example: `./tweeta admin reply-support-ticket ID --content 'I am looking into this now.'`
+
+### `admin close-support-ticket`
+
+- Command: `./tweeta admin close-support-ticket ID [--field value ...]`
+- HTTP target: `POST /api/admin/support-tickets/:id/close`
+- Path arguments: 1 positional argument. `ID` fills `:id`.
+- Request shape: JSON body route
+- CLI behavior: After the positional arguments, every `--name value` pair becomes a JSON object field. The CLI auto-types literal `true`, `false`, `null`, and numeric values, and it passes values beginning with `{` or `[` through as raw JSON. Everything else is sent as a JSON string. A bare flag with no value becomes `true`.
+- Example: `./tweeta admin close-support-ticket ID`
+
 ### `admin moderation-logs`
 
 - Command: `./tweeta admin moderation-logs [--field value ...]`
@@ -3017,4 +3089,3 @@ Admin-only moderation, user, post, DM, fact-check, IP, badge, and shop routes.
 - Request shape: Query route
 - CLI behavior: After the positional arguments, every `--name value` pair is appended as a URL query parameter. If you provide a flag with no following value, the CLI sends it as `name=true`. Values are URL-encoded strings; there is no JSON type coercion for query routes.
 - Example: `./tweeta admin shop-purchases --field value --flag`
-
