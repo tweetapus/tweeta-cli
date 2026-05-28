@@ -2,7 +2,7 @@
 
 This file documents every named route exposed by `tweeta` as a CLI command. It is intentionally CLI-focused: it explains how to invoke each route, how positional arguments are substituted, and how the client shapes your flags into a request. It does **not** attempt to describe the upstream API schema, validation rules, or response payload contracts.
 
-The source of truth for the route table is [`src/routes.c`](src/routes.c). At the time of writing, the CLI exposes **317 named routes** across **29 route groups**.
+The source of truth for the route table is [`src/routes.c`](src/routes.c). At the time of writing, the CLI exposes **318 named routes** across **29 route groups**.
 
 ## Before You Start
 
@@ -92,7 +92,7 @@ These are not separate named routes, but they matter when you are working from t
 - [`explore`](#explore) - 16 route(s)
 - [`mpi`](#mpi) - 6 route(s)
 - [`shop`](#shop) - 8 route(s)
-- [`admin`](#admin) - 80 route(s)
+- [`admin`](#admin) - 81 route(s)
 
 ## core
 
@@ -2954,6 +2954,15 @@ Admin-only moderation, user, post, DM, fact-check, IP, badge, and shop routes.
 - Request shape: Query route
 - CLI behavior: After the positional arguments, every `--name value` pair is appended as a URL query parameter. If you provide a flag with no following value, the CLI sends it as `name=true`. Values are URL-encoded strings; there is no JSON type coercion for query routes.
 - Example: `./tweeta admin user-ip ID --field value --flag`
+
+### `admin ip-connections`
+
+- Command: `./tweeta admin ip-connections ID [--field value ...]`
+- HTTP target: `GET /api/admin/users/:id/ip-connections`
+- Path arguments: 1 positional argument. `ID` fills `:id`.
+- Request shape: Query route
+- CLI behavior: After the positional arguments, every `--name value` pair is appended as a URL query parameter. If you provide a flag with no following value, the CLI sends it as `name=true`. Values are URL-encoded strings; there is no JSON type coercion for query routes.
+- Example: `./tweeta admin ip-connections ID --field value --flag`
 
 ### `admin ip-users`
 

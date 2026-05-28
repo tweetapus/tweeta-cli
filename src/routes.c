@@ -321,6 +321,7 @@ const Route ROUTES[] = {
   {"admin","super-tweeter","PATCH","/api/admin/users/:id/super-tweeter",1,PAYLOAD_BODY,NULL},
   {"admin","super-tweet","PATCH","/api/admin/posts/:id/super-tweet",1,PAYLOAD_BODY,NULL},
   {"admin","user-ip","GET","/api/admin/users/:id/ip",1,PAYLOAD_QUERY,NULL},
+  {"admin","ip-connections","GET","/api/admin/users/:id/ip-connections",1,PAYLOAD_QUERY,NULL},
   {"admin","ip-users","GET","/api/admin/ip/:ip/users",1,PAYLOAD_QUERY,NULL},
   {"admin","ban-ip","POST","/api/admin/ip/ban",0,PAYLOAD_BODY,NULL},
   {"admin","unban-ip","POST","/api/admin/ip/unban",0,PAYLOAD_BODY,NULL},
