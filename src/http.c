@@ -274,11 +274,12 @@ int http_capture(Config *cfg, const char *method, const char *path, char **out, 
 }
 
 static size_t stdout_cb(char *ptr, size_t size, size_t nmemb, void *userdata) {
-  (void)userdata;
-  return fwrite(ptr, size, nmemb, stdout) * size;
+  size_t written = fwrite(ptr, size, nmemb, stdout);
+  if (userdata && *(const bool *)userdata && written) fflush(stdout);
+  return written * size;
 }
 
-int http_stream(Config *cfg, const char *method, const char *path) {
+int http_stream_with_timeout(Config *cfg, const char *method, const char *path, long timeout_seconds) {
   CURL *curl = curl_easy_init();
   if (!curl) die("curl init failed");
   char url[4096];
@@ -290,12 +291,14 @@ int http_stream(Config *cfg, const char *method, const char *path) {
   const char *api_path = strstr(url, "/api/");
   if (!api_path) api_path = path;
   struct curl_slist *headers = build_headers(cfg, method, api_path, NULL);
+  bool flush_chunks = timeout_seconds == 0;
   curl_easy_setopt(curl, CURLOPT_URL, url);
   curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
   curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, stdout_cb);
+  curl_easy_setopt(curl, CURLOPT_WRITEDATA, &flush_chunks);
   curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
   curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, method);
-  curl_easy_setopt(curl, CURLOPT_TIMEOUT, 120L);
+  curl_easy_setopt(curl, CURLOPT_TIMEOUT, timeout_seconds);
   CURLcode rc = curl_easy_perform(curl);
   long status = 0;
   curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &status);
@@ -306,6 +309,10 @@ int http_stream(Config *cfg, const char *method, const char *path) {
     return 1;
   }
   return status >= 200 && status < 300 ? 0 : (int)(status ? status : 1);
+}
+
+int http_stream(Config *cfg, const char *method, const char *path) {
+  return http_stream_with_timeout(cfg, method, path, 120L);
 }
 
 int http_download_file(Config *cfg, const char *method, const char *path, const char *output_path, bool also_stdout) {

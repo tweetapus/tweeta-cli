@@ -12,7 +12,7 @@ void usage(void) {
       "tweeta " VERSION "\n"
       "Usage:\n"
       "  tweeta config set-base URL | set-token TOKEN | show\n"
-      "  tweeta auth login USER PASS | register USER PASS [--challenge-token TOKEN] | me\n"
+      "  tweeta auth login USER PASS | register USER PASS --challenge-token TOKEN | me\n"
       "  tweeta GROUP ACTION [ARGS...] [--field VALUE...] [--file PATH]\n"
       "  tweeta upload get --id POST_ID > attachment.bin\n"
       "  tweeta upload get --id POST_ID --all\n"
@@ -122,6 +122,19 @@ int login_request(Config *cfg, const char *path, const char *json) {
   return status >= 200 && status < 300 ? 0 : (int)(status ? status : 1);
 }
 
+static bool is_loopback_base_url(const char *url) {
+  const char *prefixes[] = {
+    "http://localhost", "https://localhost",
+    "http://127.0.0.1", "https://127.0.0.1",
+    "http://[::1]", "https://[::1]"
+  };
+  for (size_t i = 0; i < sizeof(prefixes) / sizeof(prefixes[0]); i++) {
+    size_t n = strlen(prefixes[i]);
+    if (strncmp(url, prefixes[i], n) == 0 && (url[n] == 0 || url[n] == ':' || url[n] == '/')) return true;
+  }
+  return false;
+}
+
 int cmd_auth(Config *cfg, int argc, char **argv) {
   if (argc < 2) return 2;
   if (strcmp(argv[1], "me") == 0) return http_request(cfg, "GET", "/api/auth/me", NULL, NULL, NULL, NULL);
@@ -135,7 +148,12 @@ int cmd_auth(Config *cfg, int argc, char **argv) {
     return r;
   }
   if (strcmp(argv[1], "register") == 0 && argc >= 4) {
-    const char *challenge = opt_value(argc, argv, "--challenge-token", "dev-local-cap-bypass");
+    const char *challenge = opt_value(argc, argv, "--challenge-token", NULL);
+    if (!challenge && is_loopback_base_url(cfg->base_url)) challenge = "dev-local-cap-bypass";
+    if (!challenge) {
+      fprintf(stderr, "tweeta: auth register requires --challenge-token TOKEN outside loopback development servers\n");
+      return 2;
+    }
     char *u = json_escape(argv[2]), *p = json_escape(argv[3]), *c = json_escape(challenge);
     size_t n = strlen(u) + strlen(p) + strlen(c) + 96;
     char *json = malloc(n);

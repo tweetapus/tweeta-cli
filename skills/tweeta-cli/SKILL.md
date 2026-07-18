@@ -29,7 +29,7 @@ tweeta auth login USER PASS
 tweeta auth me
 ```
 
-- `tweeta auth login` and `tweeta auth register` try to extract a token from the response and save it to config automatically.
+- `tweeta auth login` and `tweeta auth register` try to extract a token from the response and save it to config automatically. Registration requires `--challenge-token TOKEN` except against a loopback development server.
 
 ## Command Semantics
 

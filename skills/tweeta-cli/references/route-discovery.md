@@ -64,12 +64,20 @@ tweeta lists update LIST_ID --members '["alice","bob"]' --settings '{"private":t
 tweeta profile set-avatar alice --file ./avatar.png
 ```
 
+- Streaming routes write bytes as they arrive. SSE automatically uses the configured token; known uploads preserve binary data when redirected:
+
+```sh
+tweeta sse connect
+tweeta upload get FILENAME > attachment.bin
+```
+
 ## Aliases And Helpers
 
 - `tweeta me` is a shortcut for `tweeta auth me`.
 - `tweeta timeline [--field value ...]` defaults to the home timeline when no action name is supplied.
 - `tweeta tweet create|get|like|retweet|delete|reactions ...` is a legacy shortcut family. Prefer `tweets ...` when JSON type preservation matters.
 - `tweeta upload media FILE` is a shortcut for uploading a file to `/api/upload`.
+- Community icon and banner updates are two-step JSON operations: upload the image with `tweeta upload media FILE`, then pass the returned `file.url` to `tweeta communities icon ID --icon URL` or `tweeta communities banner ID --banner URL`.
 - `tweeta upload get --id POST_ID [--all] [--really-all]` fetches a post, extracts attachment references, then streams or downloads attachment files. It is different from the named route `tweeta upload get FILENAME`, which fetches a known upload filename/path.
 
 ## Raw Request Fallback

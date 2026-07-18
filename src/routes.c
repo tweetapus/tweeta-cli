@@ -12,6 +12,8 @@ const Route ROUTES[] = {
   {"core","ack-warning","POST","/api/warning/acknowledge",0,PAYLOAD_BODY,NULL},
 
   {"auth","cap-config","GET","/api/auth/cap/config",0,PAYLOAD_QUERY,NULL},
+  {"auth","cap-challenge","POST","/api/auth/cap/challenge",0,PAYLOAD_BODY,NULL},
+  {"auth","cap-redeem","POST","/api/auth/cap/redeem",0,PAYLOAD_BODY,NULL},
   {"auth","cap-rate-limit-bypass","POST","/api/auth/cap/rate-limit-bypass",0,PAYLOAD_BODY,NULL},
   {"auth","me","GET","/api/auth/me",0,PAYLOAD_QUERY,NULL},
   {"auth","switch-to-delegate","POST","/api/auth/switch-to-delegate",0,PAYLOAD_BODY,NULL},
@@ -132,8 +134,8 @@ const Route ROUTES[] = {
   {"communities","approve-join-request","POST","/api/communities/:id/join-requests/:requestId/approve",2,PAYLOAD_BODY,NULL},
   {"communities","reject-join-request","POST","/api/communities/:id/join-requests/:requestId/reject",2,PAYLOAD_BODY,NULL},
   {"communities","for-user","GET","/api/users/:userId/communities",1,PAYLOAD_QUERY,NULL},
-  {"communities","icon","POST","/api/communities/:id/icon",1,PAYLOAD_FILE,"icon"},
-  {"communities","banner","POST","/api/communities/:id/banner",1,PAYLOAD_FILE,"banner"},
+  {"communities","icon","POST","/api/communities/:id/icon",1,PAYLOAD_BODY,NULL},
+  {"communities","banner","POST","/api/communities/:id/banner",1,PAYLOAD_BODY,NULL},
   {"communities","tweets","GET","/api/communities/:id/tweets",1,PAYLOAD_QUERY,NULL},
   {"communities","tag","PATCH","/api/communities/:id/tag",1,PAYLOAD_BODY,NULL},
   {"communities","pin-tweet","POST","/api/communities/:id/tweets/:tweetId/pin",2,PAYLOAD_BODY,NULL},
@@ -220,9 +222,9 @@ const Route ROUTES[] = {
   {"trends","list","GET","/api/trends/",0,PAYLOAD_QUERY,NULL},
   {"tenor","search","GET","/api/tenor/search",0,PAYLOAD_QUERY,NULL},
   {"unsplash","search","GET","/api/unsplash/search",0,PAYLOAD_QUERY,NULL},
-  {"sse","connect","GET","/api/sse",0,PAYLOAD_QUERY,NULL},
+  {"sse","connect","GET","/api/sse",0,PAYLOAD_STREAM,NULL},
   {"upload","media","POST","/api/upload",0,PAYLOAD_FILE,"file"},
-  {"upload","get","GET","/api/uploads/:filename",1,PAYLOAD_QUERY,NULL},
+  {"upload","get","GET","/api/uploads/:filename",1,PAYLOAD_STREAM,NULL},
 
   {"explore","best-of-week","GET","/api/explore/best-of-week",0,PAYLOAD_QUERY,NULL},
   {"explore","trending-users","GET","/api/explore/trending-users",0,PAYLOAD_QUERY,NULL},
@@ -390,15 +392,25 @@ int cmd_named_route(Config *cfg, int argc, char **argv) {
   }
   char *path = render_route_path(r, argc, argv);
   int opt_start = 3 + r->path_args;
+  bool persistent_stream = r->payload == PAYLOAD_STREAM && strcmp(r->group, "sse") == 0;
   int rc;
-  if (r->payload == PAYLOAD_QUERY) {
+  if (r->payload == PAYLOAD_QUERY || r->payload == PAYLOAD_STREAM) {
     CURL *curl = curl_easy_init();
     char *q = query_from_options(curl, argc, argv, opt_start);
+    if (persistent_stream && cfg->token[0] && !opt_value(argc, argv, "--token", NULL)) {
+      char *token = urlenc(curl, cfg->token);
+      size_t qlen = strlen(q);
+      size_t need = qlen + strlen(token) + 8;
+      q = xrealloc(q, need);
+      snprintf(q + qlen, need - qlen, "%ctoken=%s", qlen ? '&' : '?', token);
+      free(token);
+    }
     char *full = malloc(strlen(path) + strlen(q) + 1);
     if (!full) die("out of memory");
     strcpy(full, path);
     strcat(full, q);
-    rc = http_request(cfg, r->method, full, NULL, NULL, NULL, NULL);
+    if (r->payload == PAYLOAD_STREAM) rc = http_stream_with_timeout(cfg, r->method, full, persistent_stream ? 0L : 120L);
+    else rc = http_request(cfg, r->method, full, NULL, NULL, NULL, NULL);
     curl_easy_cleanup(curl);
     free(q);
     free(full);

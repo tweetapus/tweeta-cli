@@ -2,13 +2,13 @@
 
 This file documents every named route exposed by `tweeta` as a CLI command. It is intentionally CLI-focused: it explains how to invoke each route, how positional arguments are substituted, and how the client shapes your flags into a request. It does **not** attempt to describe the upstream API schema, validation rules, or response payload contracts.
 
-The source of truth for the route table is [`src/routes.c`](src/routes.c). At the time of writing, the CLI exposes **318 named routes** across **29 route groups**.
+The source of truth for the route table is [`src/routes.c`](src/routes.c). At the time of writing, the CLI exposes **320 named routes** across **29 route groups**.
 
 ## Before You Start
 
 - Build the CLI with `make`.
 - Configure a base URL with `./tweeta config set-base URL`. If you do nothing, the compiled default is `https://tweeta.tiago.zip`.
-- Authenticate with either `./tweeta auth login USER PASS`, `./tweeta auth register USER PASS`, or `./tweeta config set-token TOKEN`.
+- Authenticate with either `./tweeta auth login USER PASS`, `./tweeta auth register USER PASS --challenge-token TOKEN`, or `./tweeta config set-token TOKEN`. Registration may omit the challenge token only against a loopback development server.
 - You can inspect the configured state with `./tweeta config show`.
 - Environment overrides: `TWEETA_BASE_URL`, `TWEETA_TOKEN`, and `TWEETA_CONFIG`.
 
@@ -30,6 +30,12 @@ The source of truth for the route table is [`src/routes.c`](src/routes.c). At th
 After the positional arguments, every `--name value` pair is appended as a URL query parameter. If you provide a flag with no following value, the CLI sends it as `name=true`. Values are URL-encoded strings; there is no JSON type coercion for query routes.
 
 Example: `./tweeta timeline home --limit 20 --cursor abc123 --include_replies` becomes `GET /api/timeline/?limit=20&cursor=abc123&include_replies=true`.
+
+### Streaming query routes (`PAYLOAD_STREAM`)
+
+Options are encoded as query parameters in the same way as query routes, but response bytes are written to standard output as they arrive instead of being buffered and JSON-formatted. Binary downloads retain the normal 120-second request timeout; persistent event streams do not time out.
+
+For `sse connect`, the configured token is automatically added as the `token` query parameter unless you explicitly provide `--token TOKEN`.
 
 ### JSON body routes (`PAYLOAD_BODY`)
 
@@ -65,7 +71,7 @@ These are not separate named routes, but they matter when you are working from t
 ## Group Index
 
 - [`core`](#core) - 5 route(s)
-- [`auth`](#auth) - 18 route(s)
+- [`auth`](#auth) - 20 route(s)
 - [`tweets`](#tweets) - 18 route(s)
 - [`timeline`](#timeline) - 5 route(s)
 - [`profile`](#profile) - 41 route(s)
@@ -155,6 +161,24 @@ Authentication, session, passkey, and account-management routes.
 - Request shape: Query route
 - CLI behavior: After the positional arguments, every `--name value` pair is appended as a URL query parameter. If you provide a flag with no following value, the CLI sends it as `name=true`. Values are URL-encoded strings; there is no JSON type coercion for query routes.
 - Example: `./tweeta auth cap-config --field value --flag`
+
+### `auth cap-challenge`
+
+- Command: `./tweeta auth cap-challenge [--field value ...]`
+- HTTP target: `POST /api/auth/cap/challenge`
+- Path arguments: None.
+- Request shape: JSON body route
+- CLI behavior: After the positional arguments, every `--name value` pair becomes a JSON object field. The CLI auto-types literal `true`, `false`, `null`, and numeric values, and it passes values beginning with `{` or `[` through as raw JSON. Everything else is sent as a JSON string. A bare flag with no value becomes `true`.
+- Example: `./tweeta auth cap-challenge`
+
+### `auth cap-redeem`
+
+- Command: `./tweeta auth cap-redeem [--field value ...]`
+- HTTP target: `POST /api/auth/cap/redeem`
+- Path arguments: None.
+- Request shape: JSON body route
+- CLI behavior: After the positional arguments, every `--name value` pair becomes a JSON object field. The CLI auto-types literal `true`, `false`, `null`, and numeric values, and it passes values beginning with `{` or `[` through as raw JSON. Everything else is sent as a JSON string. A bare flag with no value becomes `true`.
+- Example: `./tweeta auth cap-redeem --token TOKEN --solutions '[]'`
 
 ### `auth cap-rate-limit-bypass`
 
@@ -282,6 +306,7 @@ Authentication, session, passkey, and account-management routes.
 - Request shape: JSON body route
 - CLI behavior: After the positional arguments, every `--name value` pair becomes a JSON object field. The CLI auto-types literal `true`, `false`, `null`, and numeric values, and it passes values beginning with `{` or `[` through as raw JSON. Everything else is sent as a JSON string. A bare flag with no value becomes `true`.
 - Example: `./tweeta auth register-password --field value --count 3 --enabled true`
+- Notes: The credential-saving shortcut is `./tweeta auth register USER PASS --challenge-token TOKEN`. It requires a redeemed challenge token except against a loopback development server.
 
 ### `auth basic-login`
 
@@ -1236,23 +1261,23 @@ Community lifecycle, membership, roles, invites, and media.
 
 ### `communities icon`
 
-- Command: `./tweeta communities icon ID [--file PATH] [PATH]`
+- Command: `./tweeta communities icon ID [--field value ...]`
 - HTTP target: `POST /api/communities/:id/icon`
 - Path arguments: 1 positional argument. `ID` fills `:id`.
-- Request shape: Multipart upload route
-- Multipart field name: `icon`
-- CLI behavior: This route sends multipart/form-data. Supply the upload path as `--file PATH` or as the first non-flag argument immediately after the required positional arguments. The CLI always uses the multipart field name shown in this section; the field name is fixed per route.
-- Example: `./tweeta communities icon ID --file ./icon.png`
+- Request shape: JSON body route
+- CLI behavior: After the positional arguments, every `--name value` pair becomes a JSON object field. The CLI auto-types literal `true`, `false`, `null`, and numeric values, and it passes values beginning with `{` or `[` through as raw JSON. Everything else is sent as a JSON string. A bare flag with no value becomes `true`.
+- Example: `./tweeta communities icon ID --icon /api/uploads/FILENAME`
+- Notes: Upload the image with `./tweeta upload media FILE` first, then pass the returned `file.url` as `--icon`.
 
 ### `communities banner`
 
-- Command: `./tweeta communities banner ID [--file PATH] [PATH]`
+- Command: `./tweeta communities banner ID [--field value ...]`
 - HTTP target: `POST /api/communities/:id/banner`
 - Path arguments: 1 positional argument. `ID` fills `:id`.
-- Request shape: Multipart upload route
-- Multipart field name: `banner`
-- CLI behavior: This route sends multipart/form-data. Supply the upload path as `--file PATH` or as the first non-flag argument immediately after the required positional arguments. The CLI always uses the multipart field name shown in this section; the field name is fixed per route.
-- Example: `./tweeta communities banner ID --file ./banner.png`
+- Request shape: JSON body route
+- CLI behavior: After the positional arguments, every `--name value` pair becomes a JSON object field. The CLI auto-types literal `true`, `false`, `null`, and numeric values, and it passes values beginning with `{` or `[` through as raw JSON. Everything else is sent as a JSON string. A bare flag with no value becomes `true`.
+- Example: `./tweeta communities banner ID --banner /api/uploads/FILENAME`
+- Notes: Upload the image with `./tweeta upload media FILE` first, then pass the returned `file.url` as `--banner`.
 
 ### `communities tweets`
 
@@ -2048,9 +2073,9 @@ Server-sent event connection route.
 - Command: `./tweeta sse connect [--field value ...]`
 - HTTP target: `GET /api/sse`
 - Path arguments: None.
-- Request shape: Query route
-- CLI behavior: After the positional arguments, every `--name value` pair is appended as a URL query parameter. If you provide a flag with no following value, the CLI sends it as `name=true`. Values are URL-encoded strings; there is no JSON type coercion for query routes.
-- Example: `./tweeta sse connect --field value --flag`
+- Request shape: Streaming query route
+- CLI behavior: Query options are appended to the URL and response bytes are written to standard output as they arrive. The configured token is sent as the `token` query parameter unless `--token TOKEN` is provided explicitly. The connection has no client-side timeout.
+- Example: `./tweeta sse connect`
 
 ## upload
 
@@ -2072,9 +2097,9 @@ Raw upload and uploaded-file retrieval routes.
 - Command: `./tweeta upload get FILENAME [--field value ...]`
 - HTTP target: `GET /api/uploads/:filename`
 - Path arguments: 1 positional argument. `FILENAME` fills `:filename`.
-- Request shape: Query route
-- CLI behavior: After the positional arguments, every `--name value` pair is appended as a URL query parameter. If you provide a flag with no following value, the CLI sends it as `name=true`. Values are URL-encoded strings; there is no JSON type coercion for query routes.
-- Example: `./tweeta upload get FILENAME --field value --flag`
+- Request shape: Streaming query route
+- CLI behavior: Query options are appended to the URL and response bytes are written directly to standard output without JSON formatting. The download retains the normal 120-second request timeout.
+- Example: `./tweeta upload get FILENAME > FILE`
 - Notes: Collision note: `./tweeta upload get FILENAME` uses this named route, but `./tweeta upload get --id POST_ID [--all] [--really-all]` is intercepted earlier by the attachment-download helper and does something different. If you already have the upload filename or relative upload path, this named route is the direct way to fetch it. If you only have a post ID, use the attachment helper form instead.
 
 ## explore

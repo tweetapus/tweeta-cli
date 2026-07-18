@@ -23,7 +23,8 @@ typedef enum {
   PAYLOAD_NONE,
   PAYLOAD_BODY,
   PAYLOAD_QUERY,
-  PAYLOAD_FILE
+  PAYLOAD_FILE,
+  PAYLOAD_STREAM
 } PayloadKind;
 
 typedef struct {
@@ -61,6 +62,7 @@ void save_config(const Config *cfg);
 int http_request(Config *cfg, const char *method, const char *path, const char *body, const char *ctype, const char *file_field, const char *file_path);
 int http_capture(Config *cfg, const char *method, const char *path, char **out, size_t *out_len);
 int http_stream(Config *cfg, const char *method, const char *path);
+int http_stream_with_timeout(Config *cfg, const char *method, const char *path, long timeout_seconds);
 int http_download_file(Config *cfg, const char *method, const char *path, const char *output_path, bool also_stdout);
 struct curl_slist *build_headers(const Config *cfg, const char *method, const char *path, const char *content_type);
 
